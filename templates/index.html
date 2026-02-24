@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Video Generator — proxyapi.ru</title>
+  <style>
+    :root {
+      --bg:#0f0f13;--surface:#1a1a24;--surface2:#22222e;
+      --accent:#7c5cfc;--accent2:#b07cfc;--text:#e8e8f0;
+      --muted:#7a7a90;--success:#4ade80;--error:#f87171;--border:#2e2e42;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px 16px}
+    .container{max-width:720px;margin:0 auto}
+    h1{font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+    .subtitle{color:var(--muted);margin-bottom:28px;font-size:.9rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px}
+    .card-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
+    /* Models */
+    .model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+    .model-card{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:11px;cursor:pointer;transition:all .18s}
+    .model-card:hover{border-color:var(--accent)}
+    .model-card.selected{border-color:var(--accent);background:rgba(124,92,252,.12)}
+    .model-card input{display:none}
+    .model-name{font-weight:700;font-size:.88rem;margin-bottom:2px}
+    .model-price{font-size:.78rem;color:var(--success);font-weight:700;margin-bottom:2px}
+    .model-note{font-size:.7rem;color:var(--muted);line-height:1.4}
+    .badge{display:inline-block;font-size:.62rem;font-weight:700;background:rgba(124,92,252,.25);color:var(--accent2);border-radius:4px;padding:1px 5px;margin-top:3px}
+    /* Duration */
+    .dur-btns{display:flex;gap:8px;flex-wrap:wrap}
+    .dur-btn{flex:1;min-width:70px;padding:9px 0;border-radius:10px;border:2px solid var(--border);background:var(--surface2);color:var(--text);font-size:.88rem;font-weight:600;cursor:pointer;text-align:center;transition:all .18s}
+    .dur-btn:hover{border-color:var(--accent)}
+    .dur-btn.selected{border-color:var(--accent);background:rgba(124,92,252,.14);color:var(--accent2)}
+    .dur-cost{font-size:.68rem;color:var(--muted);font-weight:400}
+    .cost-summary{font-size:.82rem;color:var(--muted);margin-top:8px}
+    .cost-summary span{color:var(--success);font-weight:700}
+    /* Inputs */
+    textarea,input[type=text],select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:.95rem;outline:none;transition:border .2s;resize:vertical}
+    textarea:focus,input[type=text]:focus,select:focus{border-color:var(--accent)}
+    textarea{min-height:82px}
+    label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:5px}
+    /* Button */
+    .btn-primary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:1rem;cursor:pointer;transition:all .18s}
+    .btn-primary:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    /* Status */
+    .status-box{border-radius:10px;padding:13px;margin-top:12px;display:none}
+    .status-box.pending{background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.3)}
+    .status-box.success{background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3)}
+    .status-box.error{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3)}
+    .status-text{font-size:.9rem}
+    .status-taskid{font-size:.7rem;color:var(--muted);font-family:monospace;margin-top:3px;word-break:break-all}
+    video{width:100%;border-radius:10px;margin-top:12px;background:#000;max-height:420px}
+    .spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:500px){.row{grid-template-columns:1fr}}
+    .info-box{background:rgba(124,92,252,.07);border:1px solid rgba(124,92,252,.2);border-radius:8px;padding:9px 13px;font-size:.8rem;color:var(--muted);margin-bottom:14px}
+    .info-box strong{color:var(--accent2)}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎬 AI Video Generator</h1>
+  <p class="subtitle">proxyapi.ru — без VPN, оплата в рублях</p>
+
+  <div class="info-box">
+    <strong>💡 Sora 2</strong> — самая дешёвая модель: <strong>27 ₽/сек</strong>.
+    5 сек = ~135 ₽, 10 сек = ~270 ₽. Генерирует видео со звуком!
+  </div>
+
+  <!-- 1. Модель -->
+  <div class="card">
+    <div class="card-title">1. Модель</div>
+    <div class="model-grid" id="modelGrid">
+      {% for key, m in models.items() %}
+      <label class="model-card {% if key == default_model %}selected{% endif %}"
+             data-key="{{ key }}" data-price="{{ m.price_per_sec }}"
+             data-durations="{{ m.durations | join(',') }}">
+        <input type="radio" name="model" value="{{ key }}" {% if key == default_model %}checked{% endif %}/>
+        <div class="model-name">{{ m.name }}</div>
+        <div class="model-price">{{ m.price_per_sec }} ₽/сек</div>
+        <div class="model-note">{{ m.note }}</div>
+        {% if m.supports_i2v %}<span class="badge">I2V</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 2. Длительность -->
+  <div class="card">
+    <div class="card-title">2. Длительность</div>
+    <div class="dur-btns" id="durBtns"></div>
+    <div class="cost-summary">Итого: <span id="selectedCost">—</span></div>
+  </div>
+
+  <!-- 3. Промпт -->
+  <div class="card">
+    <div class="card-title">3. Промпт</div>
+    <label>Описание видео (английский даёт лучший результат)</label>
+    <textarea id="prompt" placeholder="A golden retriever puppy running through a sunny field of flowers, slow motion, cinematic, 4K"></textarea>
+  </div>
+
+  <!-- 4. Настройки -->
+  <div class="card">
+    <div class="card-title">4. Настройки</div>
+    <div class="row">
+      <div>
+        <label>Соотношение сторон</label>
+        <select id="aspectRatio">
+          <option value="16:9" selected>16:9 — горизонтальное</option>
+          <option value="9:16">9:16 — вертикальное (Reels/Shorts)</option>
+          <option value="1:1">1:1 — квадрат</option>
+        </select>
+      </div>
+      <div id="resBlock">
+        <label>Разрешение (только Veo)</label>
+        <select id="resolution">
+          <option value="720p" selected>720p</option>
+          <option value="1080p">1080p (только 8 сек + 16:9)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="genBtn" onclick="generateVideo()">
+    <span id="btnIcon">🚀</span>
+    <span id="btnText">Генерировать видео</span>
+  </button>
+
+  <div class="status-box" id="statusBox">
+    <div class="status-text" id="statusText"></div>
+    <div class="status-taskid" id="statusTaskId"></div>
+  </div>
+  <div id="resultBox"></div>
+</div>
+
+<script>
+  const modelCards = document.querySelectorAll('.model-card');
+  let selectedModel = '{{ default_model }}';
+  let selectedPrice = 0;
+  let selectedDuration = 0;
+  let availableDurations = [];
+
+  function buildDurButtons(durations, price) {
+    const container = document.getElementById('durBtns');
+    container.innerHTML = '';
+    durations.forEach((d, i) => {
+      const cost = price * d;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dur-btn' + (i === 0 ? ' selected' : '');
+      btn.dataset.sec = d;
+      btn.innerHTML = `${d} сек<br><span class="dur-cost">~${cost.toFixed(0)} ₽</span>`;
+      btn.onclick = () => selectDuration(d);
+      container.appendChild(btn);
+    });
+    selectDuration(durations[0]);
+  }
+
+  function selectDuration(sec) {
+    selectedDuration = sec;
+    document.querySelectorAll('.dur-btn').forEach(b => {
+      b.classList.toggle('selected', parseInt(b.dataset.sec) === sec);
+    });
+    const cost = selectedPrice * sec;
+    document.getElementById('selectedCost').textContent = `~${cost.toFixed(0)} ₽ за ${sec} сек`;
+  }
+
+  modelCards.forEach(card => {
+    card.addEventListener('click', () => {
+      modelCards.forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      card.querySelector('input').checked = true;
+      selectedModel = card.dataset.key;
+      selectedPrice = parseFloat(card.dataset.price);
+      availableDurations = card.dataset.durations.split(',').map(Number);
+      buildDurButtons(availableDurations, selectedPrice);
+      // Показываем resolution только для Veo
+      document.getElementById('resBlock').style.opacity =
+        selectedModel.startsWith('veo') ? '1' : '0.3';
+    });
+  });
+
+  // Инициализация
+  const initCard = document.querySelector('.model-card.selected');
+  if (initCard) {
+    selectedModel = initCard.dataset.key;
+    selectedPrice = parseFloat(initCard.dataset.price);
+    availableDurations = initCard.dataset.durations.split(',').map(Number);
+    buildDurButtons(availableDurations, selectedPrice);
+    document.getElementById('resBlock').style.opacity =
+      selectedModel.startsWith('veo') ? '1' : '0.3';
+  }
+
+  let pollInterval = null;
+
+  async function generateVideo() {
+    const prompt = document.getElementById('prompt').value.trim();
+    if (!prompt) { alert('Введите промпт!'); return; }
+
+    setLoading(true); clearResult();
+    showStatus('pending', '⏳ Отправляю запрос...');
+
+    const payload = {
+      prompt,
+      model: selectedModel,
+      duration: selectedDuration,
+      aspect_ratio: document.getElementById('aspectRatio').value,
+      resolution: document.getElementById('resolution').value,
+    };
+
+    try {
+      const resp = await fetch('/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Ошибка');
+      showStatus('pending', `⏳ Генерирую... (~1-3 мин)`, data.task_id);
+      pollStatus(data.task_id);
+    } catch(err) {
+      showStatus('error', '❌ ' + err.message);
+      setLoading(false);
+    }
+  }
+
+  function pollStatus(taskId) {
+    if (pollInterval) clearInterval(pollInterval);
+    let n = 0;
+    pollInterval = setInterval(async () => {
+      n++;
+      try {
+        const resp = await fetch('/status/' + encodeURIComponent(taskId));
+        const data = await resp.json();
+        if (data.status === 'completed') {
+          clearInterval(pollInterval); setLoading(false);
+          showStatus('success', '✅ Готово!', taskId);
+          const url = data.video_download_url || data.video_url;
+          if (url) showVideo(url, taskId);
+        } else if (data.status === 'failed') {
+          clearInterval(pollInterval); setLoading(false);
+          showStatus('error', '❌ ' + (data.error || 'Ошибка генерации'));
+        } else {
+          const prog = data.progress ? ` (${data.progress}%)` : ` (проверка ${n})`;
+          showStatus('pending', `⏳ Генерирую...${prog}`, taskId);
+        }
+      } catch(e) { console.warn(e); }
+    }, 8000);
+  }
+
+  function showStatus(type, text, taskId='') {
+    const box = document.getElementById('statusBox');
+    box.className = 'status-box ' + type; box.style.display = 'block';
+    document.getElementById('statusText').textContent = text;
+    document.getElementById('statusTaskId').textContent = taskId ? 'ID: ' + taskId : '';
+  }
+
+  function showVideo(url, videoId) {
+    // Sora: скачиваем через /download/ чтобы не раскрывать ключ в браузере
+    const isSora = videoId && videoId.startsWith('video_');
+    const proxyUrl = isSora ? `/download/${videoId}` : url;
+    document.getElementById('resultBox').innerHTML =
+      `<video controls autoplay loop src="${proxyUrl}"></video>
+       <p style="text-align:center;margin-top:8px">
+         <a href="${proxyUrl}" download="video.mp4" style="color:var(--accent2);font-size:.85rem">⬇ Скачать MP4</a>
+       </p>`;
+  }
+
+  function clearResult() {
+    document.getElementById('resultBox').innerHTML = '';
+    document.getElementById('statusBox').style.display = 'none';
+  }
+
+  function setLoading(v) {
+    document.getElementById('genBtn').disabled = v;
+    document.getElementById('btnIcon').innerHTML = v ? '<span class="spinner"></span>' : '🚀';
+    document.getElementById('btnText').textContent = v ? 'Генерирую...' : 'Генерировать видео';
+  }
+</script>
+</body>
+</html>
